@@ -7,7 +7,7 @@ echo "=== Herald Demo App ==="
 echo ""
 
 # Load .env.development from project root if it exists
-ENV_FILE="$(dirname "$0")/../../.env.development"
+ENV_FILE="../.env.development"
 if [ -f "$ENV_FILE" ]; then
   echo "Loading environment from .env.development..."
   set -a
