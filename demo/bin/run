@@ -6,14 +6,31 @@ cd "$(dirname "$0")/.."
 echo "=== Herald Demo App ==="
 echo ""
 
+# Load .env.development from project root if it exists
+ENV_FILE="$(dirname "$0")/../../.env.development"
+if [ -f "$ENV_FILE" ]; then
+  echo "Loading environment from .env.development..."
+  set -a
+  source "$ENV_FILE"
+  set +a
+fi
+
+# Map OPENAI_API_KEY to Herald config if HERALD_LLM_API_KEY is not set
+if [ -z "$HERALD_LLM_API_KEY" ] && [ -n "$OPENAI_API_KEY" ]; then
+  export HERALD_LLM_API_KEY="$OPENAI_API_KEY"
+  export HERALD_LLM_PROVIDER="openai"
+  echo "Using OpenAI API key from environment"
+fi
+
 if [ -z "$HERALD_LLM_API_KEY" ]; then
-  echo "ERROR: Set HERALD_LLM_API_KEY environment variable"
+  echo "ERROR: No LLM API key found"
   echo ""
-  echo "Usage:"
+  echo "Either create a .env.development file in the project root with:"
+  echo "  OPENAI_API_KEY=your-openai-key"
+  echo ""
+  echo "Or export directly:"
   echo "  export HERALD_LLM_API_KEY=your-api-key"
-  echo "  export HERALD_TELEGRAM_TOKEN=your-bot-token      # optional, defaults to 'demo-token'"
-  echo "  export HERALD_TELEGRAM_USER_ID=your-user-id      # optional, defaults to '123456'"
-  echo "  ./bin/run"
+  echo "  export HERALD_LLM_PROVIDER=anthropic  # or openai"
   exit 1
 fi
 
@@ -42,6 +59,7 @@ USER_ID="${HERALD_TELEGRAM_USER_ID:-123456}"
 SECRET=$(ruby -e "require 'digest'; puts Digest::SHA256.hexdigest(\"herald:${TOKEN}\")")
 
 echo ""
+echo "LLM Provider: ${HERALD_LLM_PROVIDER:-anthropic}"
 echo "Starting server on http://localhost:3000"
 echo "Webhook endpoint: POST http://localhost:3000/herald/webhook"
 echo ""
