@@ -1,0 +1,15 @@
+/coverage
+/log
+/tmp
+/vendor
+/spec/reports
+/spec/examples.txt
+/spec/examples
+/spec/failures
+/spec/failures.txt
+/spec/failures.html
+/spec/failures.json
+/spec/failures.xml
+/spec/failures.yml
+
+/.claude
