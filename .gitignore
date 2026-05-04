@@ -1,3 +1,6 @@
+Gemfile.lock
+*.gem
+pkg/
 /coverage
 /log
 /tmp
