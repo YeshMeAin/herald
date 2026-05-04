@@ -46,6 +46,27 @@ RSpec.describe Herald::LLM::Client do
       expect { client.call("test", system_prompt: "prompt") }
         .to raise_error(Herald::Error, /Anthropic API error: Bad request/)
     end
+
+    it "sends full conversation history when messages are provided" do
+      messages = [
+        { role: "user", content: "show widget 1" },
+        { role: "assistant", content: "Widget 1: Bolt" },
+        { role: "user", content: "update its quantity to 20" }
+      ]
+
+      stub = stub_request(:post, "https://api.anthropic.com/v1/messages")
+        .with { |req| JSON.parse(req.body)["messages"] == messages.map(&:stringify_keys) }
+        .to_return(
+          status: 200,
+          headers: { "content-type" => "application/json" },
+          body: {
+            content: [{ type: "text", text: '{"action": "widget.update", "params": {"id": 1, "quantity": 20}}' }]
+          }.to_json
+        )
+
+      client.call("ignored", system_prompt: "You are an agent", messages: messages)
+      expect(stub).to have_been_requested
+    end
   end
 
   describe "#call with openai" do
