@@ -18,3 +18,6 @@ pkg/
 /.claude
 CLAUDE.md
 DEVELOPMENT_LOG.md
+/demo/db/*.sqlite3*
+/demo/config/herald_instructions.md
+/demo/Gemfile.lock

@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+set -e
+
+cd "$(dirname "$0")/.."
+
+echo "=== Herald Demo App ==="
+echo ""
+
+if [ -z "$HERALD_LLM_API_KEY" ]; then
+  echo "ERROR: Set HERALD_LLM_API_KEY environment variable"
+  echo ""
+  echo "Usage:"
+  echo "  export HERALD_LLM_API_KEY=your-api-key"
+  echo "  export HERALD_TELEGRAM_TOKEN=your-bot-token      # optional, defaults to 'demo-token'"
+  echo "  export HERALD_TELEGRAM_USER_ID=your-user-id      # optional, defaults to '123456'"
+  echo "  ./bin/run"
+  exit 1
+fi
+
+echo "Installing dependencies..."
+bundle install --quiet
+
+echo "Setting up database..."
+DATABASE_URL="sqlite3:db/demo.sqlite3" bundle exec ruby -e "
+  require_relative 'config/environment'
+  ActiveRecord::Schema.verbose = false
+  load 'db/schema.rb'
+  load 'db/seeds.rb'
+"
+
+echo ""
+echo "Generating Herald instructions..."
+DATABASE_URL="sqlite3:db/demo.sqlite3" bundle exec ruby -e "
+  require_relative 'config/environment'
+  Herald.registry.build!
+  path = Herald::InstructionGenerator.new.write!
+  puts \"  Written to: \#{path}\"
+"
+
+TOKEN="${HERALD_TELEGRAM_TOKEN:-demo-token}"
+USER_ID="${HERALD_TELEGRAM_USER_ID:-123456}"
+SECRET=$(ruby -e "require 'digest'; puts Digest::SHA256.hexdigest(\"herald:${TOKEN}\")")
+
+echo ""
+echo "Starting server on http://localhost:3000"
+echo "Webhook endpoint: POST http://localhost:3000/herald/webhook"
+echo ""
+echo "Test with:"
+echo "  curl -X POST http://localhost:3000/herald/webhook \\"
+echo "    -H 'Content-Type: application/json' \\"
+echo "    -H 'X-Telegram-Bot-Api-Secret-Token: ${SECRET}' \\"
+echo "    -d '{\"message\":{\"text\":\"list all products\",\"from\":{\"id\":${USER_ID}},\"chat\":{\"id\":1}}}'"
+echo ""
+
+DATABASE_URL="sqlite3:db/demo.sqlite3" bundle exec rackup config.ru -p 3000
