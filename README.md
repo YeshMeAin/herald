@@ -183,6 +183,52 @@ end
 | `conversation_compression_threshold` | No | `20` | Messages before context compression triggers |
 | `conversation_ttl`    | No       | `1800`       | Seconds of inactivity before conversation expires |
 
+## Demo app
+
+A complete demo app is included in the `demo/` directory with Products, Orders, and a StatsService.
+
+### Quick start
+
+1. Create a `.env.development` file in the project root:
+
+```
+OPENAI_API_KEY=your-openai-api-key
+```
+
+2. Run the demo:
+
+```bash
+demo/bin/run
+```
+
+The script will:
+- Load your API key from `.env.development`
+- Install dependencies
+- Set up an SQLite database with seed data (7 products, 6 orders)
+- Generate the Herald instruction file
+- Start a server on `http://localhost:3000`
+
+3. Test with curl (the script prints the full command on startup):
+
+```bash
+curl -X POST http://localhost:3000/herald/webhook \
+  -H 'Content-Type: application/json' \
+  -H 'X-Telegram-Bot-Api-Secret-Token: <printed-by-script>' \
+  -d '{"message":{"text":"list all products","from":{"id":123456},"chat":{"id":1}}}'
+```
+
+### Environment variables
+
+The demo script loads `.env.development` automatically. It maps `OPENAI_API_KEY` to Herald's config if `HERALD_LLM_API_KEY` is not explicitly set.
+
+You can also export directly:
+
+```bash
+export HERALD_LLM_API_KEY=your-key
+export HERALD_LLM_PROVIDER=anthropic  # or openai
+demo/bin/run
+```
+
 ## License
 
 MIT

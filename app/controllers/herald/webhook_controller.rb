@@ -46,8 +46,12 @@ module Herald
     end
 
     def reply(text, chat_id:)
-      telegram_client.send_message(chat_id: chat_id, text: text)
-      head :ok
+      begin
+        telegram_client.send_message(chat_id: chat_id, text: text)
+      rescue Herald::Error => e
+        Rails.logger.debug("[Herald] Telegram send failed (#{e.message}), returning in HTTP response")
+      end
+      render plain: text, status: :ok
     end
 
     def validator
