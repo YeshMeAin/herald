@@ -16,3 +16,5 @@ pkg/
 /spec/failures.yml
 
 /.claude
+CLAUDE.md
+DEVELOPMENT_LOG.md
