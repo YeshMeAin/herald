@@ -24,16 +24,17 @@ module Herald
         end
       end
 
-      def call(user_message, system_prompt:)
+      def call(user_message, system_prompt:, messages: nil)
+        msgs = messages || [{ role: "user", content: user_message }]
         case @config.llm_provider
-        when :anthropic then call_anthropic(user_message, system_prompt)
-        when :openai then call_openai(user_message, system_prompt)
+        when :anthropic then call_anthropic(msgs, system_prompt)
+        when :openai then call_openai(msgs, system_prompt)
         end
       end
 
       private
 
-      def call_anthropic(user_message, system_prompt)
+      def call_anthropic(messages, system_prompt)
         conn = Faraday.new do |f|
           f.request :json
           f.response :json
@@ -47,7 +48,7 @@ module Herald
             model: @provider[:model],
             max_tokens: 1024,
             system: system_prompt,
-            messages: [{ role: "user", content: user_message }]
+            messages: messages
           }
         end
 
@@ -56,7 +57,7 @@ module Herald
         body.dig("content", 0, "text")
       end
 
-      def call_openai(user_message, system_prompt)
+      def call_openai(messages, system_prompt)
         conn = Faraday.new do |f|
           f.request :json
           f.response :json
@@ -67,10 +68,7 @@ module Herald
           req.headers["content-type"] = "application/json"
           req.body = {
             model: @provider[:model],
-            messages: [
-              { role: "system", content: system_prompt },
-              { role: "user", content: user_message }
-            ]
+            messages: [{ role: "system", content: system_prompt }] + messages
           }
         end
 

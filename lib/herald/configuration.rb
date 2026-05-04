@@ -4,11 +4,15 @@ module Herald
                   :telegram_user_id,
                   :llm_api_key,
                   :llm_provider,
-                  :instructions_path
+                  :instructions_path,
+                  :conversation_compression_threshold,
+                  :conversation_ttl
 
     def initialize
       @llm_provider = :anthropic
       @instructions_path = nil
+      @conversation_compression_threshold = 20
+      @conversation_ttl = 1800
     end
 
     def instructions_path

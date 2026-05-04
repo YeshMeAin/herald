@@ -138,6 +138,7 @@ This file is the LLM's system prompt — its complete source of truth about what
 - **Action registry** — built at boot from annotated classes, frozen, closed
 - **Dispatcher** — validates params, executes actions, returns results
 - **Instruction file generator** — rake task that builds the system prompt
+- **Conversation memory** — per-chat context with automatic compression
 
 ### What you own
 
@@ -153,6 +154,23 @@ This file is the LLM's system prompt — its complete source of truth about what
 - **No shadow API** — no duplicate routes, no separate HTTP layer; actions execute in-process
 - **Telegram-first** for v1, transport layer abstracted for future channels
 
+## Conversation memory
+
+Herald maintains conversation context per Telegram chat. Consecutive messages can reference earlier ones naturally — "show me widget 5", then "update its quantity to 20" — because the full conversation history is sent to the LLM.
+
+When the conversation reaches a configurable threshold (default: 20 messages), Herald makes a separate async LLM call to summarize the history so far. The summary replaces the older messages, and the most recent 4 messages are kept verbatim. This keeps context without growing the token cost unboundedly.
+
+Conversations expire after a period of inactivity (default: 30 minutes), at which point the history is cleared.
+
+Both values are configurable:
+
+```ruby
+Herald.configure do |config|
+  config.conversation_compression_threshold = 30   # compress every 30 messages
+  config.conversation_ttl = 3600                    # expire after 1 hour of inactivity
+end
+```
+
 ## Configuration reference
 
 | Option                | Required | Default      | Description                              |
@@ -162,6 +180,8 @@ This file is the LLM's system prompt — its complete source of truth about what
 | `llm_api_key`         | Yes      | —            | API key for your LLM provider            |
 | `llm_provider`        | No       | `:anthropic` | `:anthropic` or `:openai`                |
 | `instructions_path`   | No       | `config/herald_instructions.md` | Path for the generated instruction file |
+| `conversation_compression_threshold` | No | `20` | Messages before context compression triggers |
+| `conversation_ttl`    | No       | `1800`       | Seconds of inactivity before conversation expires |
 
 ## License
 

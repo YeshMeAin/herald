@@ -7,21 +7,32 @@ module Herald
       user_message = params.dig(:message, :text)
       return head :ok unless user_message
 
+      chat_id = params.dig(:message, :chat, :id)
+      conversation = Herald.conversation_store.for_chat(chat_id)
+      conversation.add_user_message(user_message)
+
       system_prompt = File.read(Herald.configuration.instructions_path)
-      llm_response = llm_client.call(user_message, system_prompt: system_prompt)
+      llm_response = llm_client.call(
+        user_message,
+        system_prompt: system_prompt,
+        messages: conversation.llm_messages
+      )
+
       parsed = response_parser.parse(llm_response)
 
       if parsed[:action] == "none"
-        reply(parsed[:message])
+        response_text = parsed[:message]
       else
-        result = dispatcher.dispatch(parsed[:action], parsed[:params])
-        reply(result)
+        response_text = dispatcher.dispatch(parsed[:action], parsed[:params])
       end
+
+      conversation.add_assistant_message(response_text)
+      reply(response_text, chat_id: chat_id)
     rescue Herald::Error => e
-      reply("Error: #{e.message}")
+      reply("Error: #{e.message}", chat_id: params.dig(:message, :chat, :id))
     rescue => e
       Rails.logger.error("[Herald] #{e.class}: #{e.message}")
-      reply("Something went wrong. Please try again.")
+      reply("Something went wrong. Please try again.", chat_id: params.dig(:message, :chat, :id))
     end
 
     private
@@ -34,8 +45,7 @@ module Herald
       head :unauthorized unless validator.authorized_user?(params.to_unsafe_h)
     end
 
-    def reply(text)
-      chat_id = params.dig(:message, :chat, :id)
+    def reply(text, chat_id:)
       telegram_client.send_message(chat_id: chat_id, text: text)
       head :ok
     end

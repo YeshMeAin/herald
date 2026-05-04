@@ -5,6 +5,8 @@ require "herald/agentable"
 require "herald/action_descriptor"
 require "herald/action_registry"
 require "herald/dispatcher"
+require "herald/conversation"
+require "herald/conversation_store"
 require "herald/instruction_generator"
 require "herald/llm/client"
 require "herald/llm/response_parser"
@@ -27,9 +29,14 @@ module Herald
       @registry ||= ActionRegistry.new
     end
 
+    def conversation_store
+      @conversation_store ||= ConversationStore.new
+    end
+
     def reset!
       @configuration = Configuration.new
       @registry = ActionRegistry.new
+      @conversation_store = ConversationStore.new
     end
   end
 end
