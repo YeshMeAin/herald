@@ -1,0 +1,118 @@
+name: Publish to RubyGems
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g. 0.2.0)"
+        required: true
+        type: string
+      ref:
+        description: "Git ref to publish from — tag (e.g. v0.1.0.pre.12), commit SHA, or branch. Defaults to master."
+        required: false
+        default: "master"
+        type: string
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Validate version format
+        run: |
+          if ! echo "${{ inputs.version }}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Invalid version format. Use semver (e.g. 0.2.0)"
+            exit 1
+          fi
+
+      - name: Check tag does not already exist
+        run: |
+          if git rev-parse "v${{ inputs.version }}" >/dev/null 2>&1; then
+            echo "::error::Tag v${{ inputs.version }} already exists"
+            exit 1
+          fi
+
+      - name: Validate version is not already published
+        run: |
+          new="${{ inputs.version }}"
+          published=$(gem search herald-agent --versions --no-verbose 2>/dev/null | grep -oP '\(.*\)' | tr -d '()' | tr ',' '\n' | tr -d ' ' || echo "")
+
+          if echo "$published" | grep -qx "$new"; then
+            echo "::error::Version $new is already published on RubyGems"
+            exit 1
+          fi
+
+          latest=$(echo "$published" | head -1)
+          if [ -n "$latest" ]; then
+            IFS='.' read -r cur_major cur_minor cur_patch <<< "$latest"
+            IFS='.' read -r new_major new_minor new_patch <<< "$new"
+
+            if [ "$new_major" -lt "$cur_major" ]; then
+              echo "::error::Major version $new_major is lower than latest published $cur_major"
+              exit 1
+            elif [ "$new_major" -eq "$cur_major" ] && [ "$new_minor" -lt "$cur_minor" ]; then
+              echo "::error::Minor version $new_minor is lower than latest published $cur_minor (major is equal)"
+              exit 1
+            elif [ "$new_major" -eq "$cur_major" ] && [ "$new_minor" -eq "$cur_minor" ] && [ "$new_patch" -le "$cur_patch" ]; then
+              echo "::error::Version $new must be higher than latest published $latest"
+              exit 1
+            fi
+
+            echo "Version bump: $latest → $new ✓"
+          else
+            echo "No published versions found — first release: $new ✓"
+          fi
+
+      - name: Update version.rb
+        run: |
+          sed -i 's/VERSION = ".*"/VERSION = "${{ inputs.version }}"/' lib/herald/version.rb
+          cat lib/herald/version.rb
+
+      - name: Commit and tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add lib/herald/version.rb
+          git commit -m "Release v${{ inputs.version }}"
+          git tag "v${{ inputs.version }}"
+          git push origin "v${{ inputs.version }}"
+
+      - name: Run tests
+        run: bundle exec rspec
+
+      - name: Build gem
+        run: gem build herald.gemspec
+
+      - name: Publish to RubyGems
+        env:
+          GEM_HOST_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
+        run: gem push *.gem
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "v${{ inputs.version }}" *.gem \
+            --title "v${{ inputs.version }}" \
+            --generate-notes
+
+      - name: Update master with released version
+        run: |
+          git fetch origin master
+          git checkout master
+          sed -i 's/VERSION = ".*"/VERSION = "${{ inputs.version }}"/' lib/herald/version.rb
+          git add lib/herald/version.rb
+          git commit -m "Bump version to ${{ inputs.version }} after release"
+          git push origin master

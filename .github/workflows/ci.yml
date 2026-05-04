@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby: ["3.1", "3.2", "3.3"]
+        rails: ["7.0", "7.1", "7.2", "8.0"]
+        exclude:
+          - ruby: "3.1"
+            rails: "8.0"
+
+    env:
+      RAILS_VERSION: ${{ matrix.rails }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+
+      - name: Run tests
+        run: bundle exec rspec
+
+  build:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Determine pre-release version
+        id: version
+        run: |
+          base_version=$(ruby -r ./lib/herald/version.rb -e "puts Herald::VERSION")
+          pre_version="${base_version}.pre.${GITHUB_RUN_NUMBER}"
+          echo "pre_version=${pre_version}" >> "$GITHUB_OUTPUT"
+          echo "Building pre-release: ${pre_version}"
+
+      - name: Build gem
+        run: gem build herald.gemspec
+
+      - name: Tag pre-release
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "v${{ steps.version.outputs.pre_version }}"
+          git push origin "v${{ steps.version.outputs.pre_version }}"
+
+      - name: Upload gem artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: herald-agent-${{ steps.version.outputs.pre_version }}
+          path: "*.gem"
