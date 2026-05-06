@@ -38,10 +38,18 @@ Create an initializer:
 ```ruby
 # config/initializers/herald.rb
 Herald.configure do |config|
-  config.telegram_bot_token = ENV["HERALD_TELEGRAM_TOKEN"]
-  config.telegram_user_id   = ENV["HERALD_TELEGRAM_USER_ID"]
-  config.llm_api_key        = ENV["HERALD_LLM_API_KEY"]
-  config.llm_provider       = :anthropic  # or :openai
+  config.telegram_bot_token  = ENV["HERALD_TELEGRAM_TOKEN"]
+  config.telegram_user_id    = ENV["HERALD_TELEGRAM_USER_ID"]
+
+  # Bedrock (default)
+  config.aws_access_key_id     = ENV["AWS_ACCESS_KEY_ID"]
+  config.aws_secret_access_key = ENV["AWS_SECRET_ACCESS_KEY"]
+  config.aws_region            = "us-east-1"
+  config.llm_model             = "anthropic.claude-3-sonnet-20240229-v1:0"
+
+  # Or use Anthropic / OpenAI directly:
+  # config.llm_provider = :anthropic  # or :openai
+  # config.llm_api_key  = ENV["HERALD_LLM_API_KEY"]
 end
 ```
 
@@ -177,8 +185,12 @@ end
 |-----------------------|----------|--------------|------------------------------------------|
 | `telegram_bot_token`  | Yes      | —            | Your Telegram bot token                  |
 | `telegram_user_id`    | Yes      | —            | Whitelisted Telegram user ID             |
-| `llm_api_key`         | Yes      | —            | API key for your LLM provider            |
-| `llm_provider`        | No       | `:anthropic` | `:anthropic` or `:openai`                |
+| `llm_provider`        | No       | `:bedrock`   | `:bedrock`, `:anthropic`, or `:openai`   |
+| `llm_model`           | Bedrock  | —            | Exact Bedrock model ID (e.g. `anthropic.claude-3-sonnet-20240229-v1:0`) |
+| `aws_access_key_id`   | Bedrock  | —            | AWS access key ID                        |
+| `aws_secret_access_key` | Bedrock | —           | AWS secret access key                    |
+| `aws_region`          | No       | `us-east-1`  | AWS region for Bedrock                   |
+| `llm_api_key`         | Non-Bedrock | —         | API key for Anthropic or OpenAI          |
 | `instructions_path`   | No       | `config/herald_instructions.md` | Path for the generated instruction file |
 | `conversation_compression_threshold` | No | `20` | Messages before context compression triggers |
 | `conversation_ttl`    | No       | `1800`       | Seconds of inactivity before conversation expires |
