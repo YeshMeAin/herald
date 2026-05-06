@@ -12,6 +12,7 @@ RSpec.describe Herald::WebhookController, type: :controller do
       c.telegram_bot_token = "bot-token"
       c.telegram_user_id = user_id.to_s
       c.llm_api_key = "llm-key"
+      c.llm_provider = :anthropic
     end
 
     stub_request(:post, %r{api\.telegram\.org}).to_return(

@@ -21,4 +21,5 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency "rails", ">= 7.0"
   spec.add_dependency "faraday", ">= 2.0"
+  spec.add_dependency "aws-sdk-bedrockruntime", "~> 1.0"
 end
